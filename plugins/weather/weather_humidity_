@@ -2,7 +2,7 @@
 """
 munin US NOAA weather plugin (http://weather.noaa.gov)
 
-Draws humidity in hPa.
+Draws relative humidity in percent.
 Copy/link file as 'weather_humidity_CODE', like: weather_humidity_LOWW for Austria, Vienna.
 
 Get the code by going to http://weather.noaa.gov, selecting your
@@ -28,7 +28,7 @@ if len(sys.argv) == 2 and sys.argv[1] == "autoconf":
   print "yes"
 
 elif len(sys.argv) == 2 and sys.argv[1] == "config":
-  print 'graph_title relative humidity at code %s' % code
+  print 'graph_title relative humidity at %s' % code
   print 'graph_vlabel %'
   print 'graph_category weather'
 

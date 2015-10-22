@@ -25,16 +25,15 @@ code = sys.argv[0][(sys.argv[0].rfind('_')+1):]
 if code == None: sys.exit(1)
 
 if len(sys.argv) == 2 and sys.argv[1] == "autoconf":
-
   print "yes"
 
 elif len(sys.argv) == 2 and sys.argv[1] == "config":
 
-  print 'graph_title Atmospheric pressure at code %s' % code
-  print 'graph_vlabel Pressure in hPa'
-  print 'graph_category Weather'
+  print 'graph_title atmospheric pressure at %s' % code
+  print 'graph_vlabel hPa'
+  print 'graph_category weather'
 
-  print 'pressure.label Pressure'
+  print 'pressure.label pressure'
   print 'pressure.type GAUGE'
   print 'graph_args --base 1000 -l 850 -u 1050 --rigid'
   print 'graph_scale no'
