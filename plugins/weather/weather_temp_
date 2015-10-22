@@ -18,8 +18,8 @@ import re
 
 url = 'http://weather.noaa.gov/pub/data/observations/metar/decoded/%s.TXT'
 
-re_C = re.compile('Temperature:.*\((-?\d+\.?\d?) C\)')
-re_DewC = re.compile('Dew.*\((-?\d+\.?\d?) C\)')
+re_C = re.compile('Temperature: (-?\d+\.?\d?) F \(')
+re_DewC = re.compile('Dew Point: (-?\d+\.?\d?) F \(')
 
 code = sys.argv[0][(sys.argv[0].rfind('_')+1):]
 if code == None: sys.exit(1)
@@ -31,7 +31,7 @@ if len(sys.argv) == 2 and sys.argv[1] == "autoconf":
 elif len(sys.argv) == 2 and sys.argv[1] == "config":
 
   print 'graph_title Temperature and Dew Point at code %s' % code
-  print 'graph_vlabel Temperature and Dew Point in C'
+  print 'graph_vlabel Temperature and Dew Point in F'
   print 'graph_category Weather'
 
   print 'temperature.label Temperature'
