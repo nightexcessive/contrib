@@ -1,0 +1,78 @@
+#!/bin/sh
+# -*- sh -*-
+
+: << =cut
+
+=head1 NAME
+
+apc_envunit_ - plugin to monitor temperature and humidity
+
+=head1 APPLICABLE SYSTEMS
+
+Hosts which can use SNMP to connect to an APC environmental unit
+
+=head1 CONFIGURATION
+
+The following environment variables are available
+
+ units     - DNS names of environmental units
+ oid       - OID Prefix for humidity probes
+ community - SNMP community to use to access the APC unit
+
+The following shows a typical configuration:
+
+ [apc_envunit_*]
+   env.units foo.example.org bar.example.org
+   env.community 123secret
+
+=head1 INTERPRETATION
+
+Shows a graph with either temperature or humidity for a number of
+environmental units.
+
+=head1 MAGIC MARKERS
+
+ #%# family=auto
+ #%# capabilities=autoconf suggest
+
+=head1 BUGS
+
+None known. Should be snmp__apc_.
+
+=head1 AUTHOR
+
+Xavier Redon
+
+=head1 LICENSE
+
+Unknown
+
+=cut
+
+username=`echo $0 | sed -e 's/^.*\/twitch_\(.*\)$/\1/'`
+
+if [ "$1" = "config" ]; then
+	echo "hostname twitch.tv"
+	echo "graph_args --base 1000 -l 0"
+	echo "graph_scale no"
+	echo "graph_title number of viewers on ${username}"
+	echo "graph_vlabel viewers"
+	echo "graph_category twitch"
+	echo "viewers.label viewers"
+	exit 0
+fi
+
+userinfo="$(curl --silent -H 'Accept: application/vnd.twitchtv.v2+json' -X GET "https://api.twitch.tv/kraken/streams/${username}")"
+
+error="$(echo -n "${userinfo}" | jq -e .error)"
+if [ $? -eq 0 ]; then
+	echo "# Error fetching channel information: $(jq .message)"
+	exit 1
+fi
+
+viewers="$(echo -n "${userinfo}" | jq -e .stream.viewers)"
+if [ $? -ne 0 ]; then
+	echo 'viewers.value U'
+	exit 0
+fi
+echo "viewers.value ${viewers}"
