@@ -1,0 +1,133 @@
+#!/usr/bin/perl -w
+# -*- perl -*-
+
+=head1 NAME
+
+postfix_mailvolume_journald - Plugin to monitor the volume of mails delivered
+  by postfix. (using journald as a logging backend)
+
+=head1 APPLICABLE SYSTEMS
+
+Any postfix system that uses journald for logging.
+
+=head1 CONFIGURATION
+
+postfix_mailvolume_journald must always be run as root to catch the default
+  postfix logs.
+
+  [postfix_mailvolume_journald]
+    user root
+
+=head1 INTERPRETATION
+
+The plugin shows the number of bytes of mail that has passed through
+the postfix installation.
+
+=head1 MAGIC MARKERS
+
+  #%# family=auto
+  #%# capabilities=autoconf
+
+=head1 BUGS
+
+None known
+
+=head1 VERSION
+
+ $Id$
+
+=head1 AUTHOR
+
+Copyright (C) 2015.
+
+Michael Johnson
+
+=head1 LICENSE
+
+GPLv2
+
+=cut
+
+use strict;
+use IPC::Cmd qw[run];
+
+use Munin::Plugin;
+
+my $cursor = undef;
+my $volume = 0;
+
+sub parseLogfile {
+    my ($start) = @_;
+
+    my $cmd;
+    if($start eq "") {
+        $cmd = ['journalctl', '-u', 'postfix.service', '--show-cursor'];
+    } else {
+        $cmd = ['journalctl', '-u', 'postfix.service', '--show-cursor', '--after-cursor', $start];
+    }
+
+    my $logLines;
+    scalar run(
+        command => $cmd,
+        verbose => 0,
+        buffer => \$logLines,
+        timeout => 30);
+
+    my $line;
+
+    my $newCursor = undef;
+
+    foreach $line (split /^/, $logLines) {
+        if($line =~ /qmgr.*from=.*size=([0-9]+)/) {
+            $volume += $1;
+        } elsif($line =~ /^-- cursor: (.*)$/) {
+            $newCursor = $1;
+        }
+    }
+    return $newCursor;
+}
+
+if($ARGV[0] and $ARGV[0] eq "autoconf") {
+    `which postconf >/dev/null 2>/dev/null`;
+    if(!$?) {
+        `which journalctl >/dev/null 2>/dev/null`;
+
+        if(!$?) {
+            print "yes\n";
+            exit 0;
+        } else {
+            print "no (journalctl not found)\n";
+        }
+    } else {
+        print "no (postfix not found)\n";
+    }
+
+    exit 0;
+}
+
+
+if( $ARGV[0] and $ARGV[0] eq "config") {
+    print "graph_title Postfix bytes throughput\n";
+    print "graph_args --base 1000 -l 0\n";
+    print "graph_vlabel bytes / \${graph_period}\n";
+    print "graph_scale yes\n";
+    print "graph_category postfix\n";
+    print "volume.label throughput\n";
+    print "volume.type DERIVE\n";
+    print "volume.min 0\n";
+    exit 0;
+}
+
+($cursor, $volume) = restore_state();
+
+if(!defined($volume)) {
+    $volume = 0;
+}
+
+$cursor = parseLogfile($cursor);
+
+print "volume.value $volume\n";
+
+save_state($cursor, $volume);
+
+# vim:syntax=perl
