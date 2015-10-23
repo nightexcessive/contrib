@@ -17,99 +17,81 @@ query_string=$(printf '%s' "${0#*_}" | tr '_' '=')
 TMPFILE=$(mktemp)
 trap 'rm -f $TMPFILE' EXIT
 
-# API returns temp in K, we have to convert it in C
-KELVIN_BIAS=273
+graph_name=$(basename "$0")
 
-curl -s "http://api.openweathermap.org/data/2.5/weather?mode=xml&${query_string}" > $TMPFILE
+# API returns temp in K, we have to convert it in F
+KELVIN_BIAS=459.67
+FARENHEIT_SCALE=1.8
 
-CITY=$(fgrep "<city id=" $TMPFILE | tr -sc '[:alnum:]' ' ' | cut -d " " -f 6)
+curl -o "${TMPFILE}" -s "http://api.openweathermap.org/data/2.5/weather?mode=json&APPID=${api_key}&${query_string}"
+
+CITY=$(jq -r '.name' "${TMPFILE}")
 
 if [ "$1" = "config" ];
 then
 	cat <<- EOF
-		multigraph $0
-		graph_title Temperature in ${CITY}
-		graph_vlabel Celsius
+		multigraph ${graph_name}_temp
+		graph_title temperature in ${CITY}
+		graph_args --base 1000
+		graph_vlabel F
 		graph_category weather
-		graph_info This graph show the temperature in ${CITY}
+		graph_info This graph shows the temperature in ${CITY}
 		temp_avg.label avg
-		temp_avg.cdef $KELVIN_BIAS,-
+		temp_avg.cdef temp_avg,$FARENHEIT_SCALE,*,$KELVIN_BIAS,-
 
-		multigraph $0.temp
-		graph_title Temperature in ${CITY}
-		graph_vlabel Celsius
-		graph_category weather
-		graph_info This graph show the temperature in ${CITY}
-		temp_avg.label avg
-		temp_avg.cdef $KELVIN_BIAS,-
-		temp_min.label min
-		temp_min.cdef $KELVIN_BIAS,-
-		temp_max.label max
-		temp_max.cdef $KELVIN_BIAS,-
-
-		multigraph $0.humidity
-		graph_title Humidity in ${CITY}
+		multigraph ${graph_name}_humidity
+		graph_title humidity in ${CITY}
+		graph_args --base 1000 -l 0 -u 100
+		graph_scale no
 		graph_vlabel %
 		graph_category weather
 		graph_info This graph show the humidity in ${CITY}
 		humidity.label humidity
 
-		multigraph $0.pressure
-		graph_title Pressure in ${CITY}
+		multigraph ${graph_name}_pressure
+		graph_title pressure in ${CITY}
+		graph_args --base 1000 -l 850 -u 1050 --rigid
+		graph_scale no
 		graph_vlabel hPa
 		graph_category weather
 		graph_info This graph show the pressure in ${CITY}
 		pressure.label pressure
 
-		multigraph $0.wind_speed
-		graph_title Wind Speed in ${CITY}
+		multigraph ${graph_name}_wind_speed
+		graph_title wind speed in ${CITY}
+		graph_args --base 1000
 		graph_vlabel m/s
 		graph_category weather
 		graph_info This graph show the wind speed in ${CITY}
 		speed.label wind speed
-
-		multigraph $0.wind_direction
-		graph_title Wind direction in ${CITY}
-		graph_vlabel m/s
-		graph_category weather
-		graph_info This graph show the wind direction in ${CITY}
-		direction.label wind direction
 	EOF
 
 	# Continue if dirty config is enabled
 	[ "$MUNIN_CAP_DIRTYCONFIG" = 1 ] || exit 0
 fi
 
-TEMP_AVG=$(fgrep "<temperature value=" $TMPFILE | tr -sc '[:alnum:].' ' ' | cut -d " " -f 4)
-TEMP_MIN=$(fgrep "<temperature value=" $TMPFILE | tr -sc '[:alnum:].' ' ' | cut -d " " -f 6)
-TEMP_MAX=$(fgrep "<temperature value=" $TMPFILE | tr -sc '[:alnum:].' ' ' | cut -d " " -f 8)
+TEMP_AVG=$(jq -r '.main.temp' "${TMPFILE}")
+TEMP_MIN=$(jq -r '.main.temp_min' "${TMPFILE}")
+TEMP_MAX=$(jq -r '.main.temp_max' "${TMPFILE}")
 
-HUMIDITY=$(fgrep "<humidity value=" $TMPFILE | tr -sc '[:alnum:].' ' ' | cut -d " " -f 4)
-PRESSURE=$(fgrep "<pressure value=" $TMPFILE | tr -sc '[:alnum:].' ' ' | cut -d " " -f 4)
+HUMIDITY=$(jq -r '.main.humidity' "${TMPFILE}")
+PRESSURE=$(jq -r '.main.pressure' "${TMPFILE}")
 
-WD_SPEED=$(fgrep "<speed value=" $TMPFILE | tr -sc '[:alnum:].' ' ' | cut -d " " -f 4)
-WD_DIREC=$(fgrep "<direction value=" $TMPFILE | tr -sc '[:alnum:].' ' ' | cut -d " " -f 4)
+WD_SPEED=$(jq -r '.wind.speed' "${TMPFILE}")
+WD_DIREC=$(jq -r '.wind.deg' "${TMPFILE}")
 
 cat <<- EOF
-	multigraph $0
+	multigraph ${graph_name}_temp
 	temp_avg.value	$TEMP_AVG
 
-	multigraph $0.temp
-	temp_avg.value $TEMP_AVG
-	temp_min.value $TEMP_MIN
-	temp_max.value $TEMP_MAX
-
-	multigraph $0.humidity
+	multigraph ${graph_name}_humidity
 	humidity.value $HUMIDITY
 
-	multigraph $0.pressure
+	multigraph ${graph_name}_pressure
 	pressure.value $PRESSURE
 
-	multigraph $0.wind_speed
+	multigraph ${graph_name}_wind_speed
 	speed.value $WD_SPEED
-
-	multigraph $0.wind_direction
-	direction.label $WD_DIREC
 EOF
 
 
