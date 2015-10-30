@@ -13,6 +13,11 @@
 #    http://api.openweathermap.org/data/<api>/weather?<query_string>
 #
 
+## From Oct 9 2015 OpenWeather needs you to register and get an APIKEY
+# include this key by setting 'env.apikey' in munin plugin config, i.e.:
+# [openweather_*]
+# env.apikey XYZ
+
 query_string=$(printf '%s' "${0#*_}" | tr '_' '=')
 TMPFILE=$(mktemp)
 trap 'rm -f $TMPFILE' EXIT
